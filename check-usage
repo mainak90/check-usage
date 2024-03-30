@@ -1,0 +1,108 @@
+#!/bin/bash
+set -eo pipefail
+
+if ! which jq &> /dev/null; then
+    echo "Please install jq" 1>&2
+    exit 1
+fi
+
+print_usage() {
+    cat << EOF
+Usage: kubectl check-usage [-n namespace] [-l resource label] [-r kubernetes resource viz node/pods] [-a get all resources of a specific type]
+
+Options:
+-n          Namespace of the resource to check.
+-l          Label of the resources to filter.
+-r          The resource type to check usage of. Currently supports only pods and nodes.
+-a          Lists all resources of a specific type. The resources selection(-r) needs to be passed in for this to take effect.
+-h          Print this help message.
+EOF
+exit 1
+}
+
+while getopts n:l:r:h flag
+do
+    case "${flag}" in
+        n) namespace=${OPTARG};;
+        l) label=${OPTARG};;
+        r) resource=${OPTARG};;
+        h) print_usage;;
+    esac
+done
+
+get_node_usage() {
+  label=$1
+  printf "NodeName                                          CPU           CPUUsage            Mem           MemUsage \n"
+  if [ -z $label ];
+    then
+      for i in $(kubectl get nodes  --no-headers | awk '{print $1}')
+        do
+          CPU=$(kubectl get node $i -o json | jq .status.capacity.cpu)
+          MEMORY=$(kubectl get node $i -o json | jq .status.capacity.memory)
+          USEDCPU=$(kubectl get --raw "/apis/metrics.k8s.io/v1beta1/nodes/$i" | jq .usage.cpu)
+          USEDMEM=$(kubectl get --raw "/apis/metrics.k8s.io/v1beta1/nodes/$i" | jq .usage.memory)
+          printf '%-50s%-14s%-20s%-14s%-9s \n' "$i" "$CPU" "$USEDCPU" "$MEMORY" "$USEDMEM"
+      done
+    else
+      for i in $(kubectl get nodes  --no-headers -l $label | awk '{print $1}')
+        do
+          CPU=$(kubectl get node $i -o json | jq .status.capacity.cpu)
+          MEMORY=$(kubectl get node $i -o json | jq .status.capacity.memory)
+          USEDCPU=$(kubectl get --raw "/apis/metrics.k8s.io/v1beta1/nodes/$i" | jq .usage.cpu)
+          USEDMEM=$(kubectl get --raw "/apis/metrics.k8s.io/v1beta1/nodes/$i" | jq .usage.memory)
+          printf '%-50s%-14s%-20s%-14s%-9s \n' "$i" "$CPU" "$USEDCPU" "$MEMORY" "$USEDMEM"
+      done
+  fi
+}
+
+get_pod_usage() {
+  namespace=$1
+  label=$2
+  printf "PodName                                           CPURequests   CPULimits     CPUUsage      MemRequests   MemLimits     MemUsage \n"
+  if [ -z $label ];
+    then
+      for i in $(kubectl get pods -n $namespace --no-headers | grep "Running" | awk '{print $1}')
+        do
+          kubectl get pod $i -n $namespace --ignore-not-found=false >> /dev/null
+          if [ $? -eq 0 ];
+            then
+              CPUREQ=$(kubectl get pod -n $namespace $i -o json | jq '.spec.containers[0].resources.requests.cpu')
+              CPULIMS=$(kubectl get pod -n $namespace $i -o json | jq '.spec.containers[0].resources.limits.cpu')
+              CPUUSED=$(kubectl get --raw "/apis/metrics.k8s.io/v1beta1/namespaces/$namespace/pods/$i" | jq '.containers[0].usage.cpu')
+              MEMREQ=$(kubectl get pod -n $namespace $i -o json | jq '.spec.containers[0].resources.requests.memory')
+              MEMLIMS=$(kubectl get pod -n $namespace $i -o json | jq '.spec.containers[0].resources.limits.memory')
+              MEMUSED=$(kubectl get --raw "/apis/metrics.k8s.io/v1beta1/namespaces/$namespace/pods/$i" | jq '.containers[0].usage.memory')
+              printf '%-50s%-14s%-14s%-14s%-14s%-14s%-14s \n' "$i" "$CPUREQ" "$CPULIMS" "$CPUUSED" "$MEMREQ" "$MEMLIMS" "$MEMUSED"
+          fi
+        done
+  else
+      for i in $(kubectl get pods -n $namespace -l $label --no-headers  | grep "Running"  | awk '{print $1}')
+        do
+          kubectl get pod $i -n $namespace --ignore-not-found=false >> /dev/null
+          if [ $? -eq 0 ];
+            then
+              CPUREQ=$(kubectl get pod -n $namespace $i -o json | jq '.spec.containers[0].resources.requests.cpu')
+              CPULIMS=$(kubectl get pod -n $namespace $i -o json | jq '.spec.containers[0].resources.limits.cpu')
+              CPUUSED=$(kubectl get --raw "/apis/metrics.k8s.io/v1beta1/namespaces/$namespace/pods/$i" | jq '.containers[0].usage.cpu')
+              MEMREQ=$(kubectl get pod -n $namespace $i -o json | jq '.spec.containers[0].resources.requests.memory')
+              MEMLIMS=$(kubectl get pod -n $namespace $i -o json | jq '.spec.containers[0].resources.limits.memory')
+              MEMUSED=$(kubectl get --raw "/apis/metrics.k8s.io/v1beta1/namespaces/$namespace/pods/$i" | jq '.containers[0].usage.memory')
+              printf '%-50s%-14s%-14s%-14s%-14s%-14s%-14s \n' "$i" "$CPUREQ" "$CPULIMS" "$CPUUSED" "$MEMREQ" "$MEMLIMS" "$MEMUSED"
+          fi
+        done
+  fi
+}
+
+if [ $resource == "node" ];
+then
+  echo "Node resource usage requested!"
+  get_node_usage $label
+elif [ $resource == "pod" ];
+then
+  echo "Pod resource usage requested!"
+  get_pod_usage $namespace $label
+else
+  echo "Please provide valid paremeters. Params provided $#"
+  print_usage
+fi
+

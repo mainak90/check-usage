@@ -1,0 +1,36 @@
+name: Create Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    if: contains( github.event.head_commit.message, 'release' )
+    steps:
+     - name: Checkout Code
+       uses: actions/checkout@v2
+     - name: Set Tag Output
+       id: set-tag
+       run:  echo "::set-output name=tag_name::$(cat VERSION)"
+     - name: Create Tag
+       uses: actions/github-script@v3
+       env:
+          TAG: ${{ steps.set-tag.outputs.tag_name }}
+       with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: "refs/tags/${{ steps.set-tag.outputs.tag_name }}",
+              sha: context.sha
+            })
+     - name: Create release
+       uses: ncipollo/release-action@v1
+       with:
+        tag: ${{ steps.set-tag.outputs.tag_name }}
+        bodyFile: './release_notes.txt'
+        token: ${{ secrets.GITHUB_TOKEN }}
