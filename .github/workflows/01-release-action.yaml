@@ -7,6 +7,7 @@ on:
 
 jobs:
   create-release:
+    permissions: write-all
     runs-on: ubuntu-latest
     if: contains( github.event.head_commit.message, 'release' )
     steps:
