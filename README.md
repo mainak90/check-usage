@@ -12,13 +12,13 @@ The plugin supports selecting the following options:
 3. `label` This is a filter/selector of both pod and node level resources using labels as selectors. You still need to pass in the namespace for pods for this flag to work.
 Examples input
 ```
-    kubectl check-usage -n default -r pod
-    kubectl check-usage -r node
-    kubectl check-usage -r node -l traderepublic.com/instancegroup=cashbalance
+    kubectl checkusage -n default -r pod
+    kubectl checkusage -r node
+    kubectl checkusage -r node -l traderepublic.com/instancegroup=cashbalance
 ```
 Example output
 ```
-#> kubectl check-usage -r node -l traderepublic.com/instancegroup=cashbalance
+#> kubectl checkusage -r node -l traderepublic.com/instancegroup=cashbalance
 Node resource usage requested!
 NodeName                                          CPU           CPUUsage            Mem           MemUsage 
 ip-10-0-49-171.eu-central-1.compute.internal      "8"           "50m"               "32329184Ki"  "1289232Ki" 
