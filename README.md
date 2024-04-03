@@ -33,6 +33,11 @@ The plugin would need
 2. `jq` installed, atleast version 1.6 or above.
 3. Metrics server installation(this plugin relies on metrics server installed to be able to get usage figures correctly.). If you are using a managed kubernetes cluster and unsure if metrics-server is installed check if `kubectl top node` returns an output. If yes then its installed.
 
+## Installation
+1. Clone the repo.
+2. Leverage the makefile and run `make install`. 
+3. This will install the script and you'd be able to use it with `kubectl checkusage <OPTIONS>`. 
+
 ## Releasing new version
 1. Create PR towards main.
 2. Include the keyword `release` in commit message.
